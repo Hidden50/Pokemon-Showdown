@@ -725,14 +725,28 @@ exports.commands = {
 	deletegroupchat: 'deleteroom',
 	deleteroom: function (target, room, user) {
 		let roomid = target.trim();
-		if (!roomid) return this.parse('/help deleteroom');
-		let targetRoom = Rooms.search(roomid);
-		if (!targetRoom) return this.errorReply("The room '" + target + "' doesn't exist.");
-		if (room.isPersonal) {
+		if (!roomid) {
+			// allow deleting personal rooms without typing out the room name
+			if (room.isPersonal)
+				roomid = room.id;
+			else return this.parse('/help deleteroom');
+		}
+
+		// find the room to be deleted, if it isn't the same the command is used in
+		let targetRoom;
+		if (roomid === room.id)
+			targetRoom = room;
+		else if (this.can('makeroom'))
+			targetRoom = Rooms.search(roomid);
+
+		// does the user have authority to delete the room?
+		if (targetRoom && targetRoom.isPersonal) {
 			if (!this.can('editroom', null, targetRoom)) return;
 		} else {
 			if (!this.can('makeroom')) return;
 		}
+
+		if (!targetRoom) return this.errorReply(`The room '${roomid}' was not found.`);
 		target = targetRoom.title || targetRoom.id;
 
 		if (targetRoom.id === 'global') {
@@ -770,7 +784,10 @@ exports.commands = {
 		targetRoom.update();
 		targetRoom.destroy();
 	},
-	deleteroomhelp: [`/deleteroom [roomname] - Deletes room [roomname]. Requires: & ~`],
+	deleteroomhelp: [
+		`/deleteroom [roomname] - Deletes room [roomname]. Requires: & ~`,
+		`/deletegroupchat - Deletes a groupchat. Requires: & ~ #`
+	],
 
 	hideroom: 'privateroom',
 	hiddenroom: 'privateroom',
